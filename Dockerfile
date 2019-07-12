@@ -1,5 +1,6 @@
 FROM willnx/vlab-base
 
+RUN mkdir /etc/vlab
 COPY  dist/*.whl /tmp
 RUN pip3 install /tmp/*.whl && rm /tmp/*.whl
 RUN apk del gcc

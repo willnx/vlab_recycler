@@ -7,15 +7,16 @@ services:
       unless-stopped
     volumes:
       - ./recycler:/usr/lib/python3.6/site-packages/recycler
+      - /etc/vlab:/etc/vlab
     environment:
       - INF_VCENTER_SERVER=ChangeMe
       - INF_VCENTER_USER=ChangeMe
       - INF_VCENTER_PASSWORD=ChangeMe
-      - AUTH_PRIVATE_KEY_LOCATION=changeMe
+      - AUTH_PRIVATE_KEY_LOCATION=/etc/vlab/ChangeMe
       - AUTH_TOKEN_ALGORITHM=RS256
       - AUTH_LDAP_URL=ldaps://ChangeMe
       - AUTH_BIND_USER=ChangeMe
-      - AUTH_BIND_PASSWORD=ChangeMe
+      - AUTH_BIND_PASSWORD_LOCATION=/etc/vlab/ChangeMe
       - AUTH_SEARCH_BASE=ChangeMe
-      - VLAB_URL=https://localhost
-      - VLAB_IP=127.0.0.1
+      - VLAB_URL=https://ChangeMe
+      - VLAB_IP=ChangeMe

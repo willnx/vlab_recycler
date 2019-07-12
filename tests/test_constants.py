@@ -10,7 +10,7 @@ class TestConst(unittest.TestCase):
     def test_expected_constants(self):
         """``const`` contains the expected constants"""
         the_consts = [x for x in dir(const) if x.isupper()]
-        expected = ['AUTH_BIND_PASSWORD', 'AUTH_BIND_USER', 'AUTH_LDAP_URL',
+        expected = ['AUTH_BIND_PASSWORD_LOCATION', 'AUTH_BIND_USER', 'AUTH_LDAP_URL',
                     'AUTH_PRIVATE_KEY_LOCATION', 'AUTH_SEARCH_BASE',
                     'AUTH_TOKEN_ALGORITHM', 'AUTH_TOKEN_VERSION',
                     'INF_VCENTER_PASSWORD', 'INF_VCENTER_PORT',

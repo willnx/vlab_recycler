@@ -7,20 +7,20 @@ from recycler import recycle
 
 
 class TestGetAuthTokenSecret(unittest.TestCase):
-    """A suite of test cases for the ``_get_auth_token_secret`` function"""
+    """A suite of test cases for the ``_get_secret`` function"""
     def test_no_location(self):
-        """``_get_auth_token_secret`` raises RuntimeError if the 'location' parameter is not true"""
+        """``_get_secret`` raises RuntimeError if the 'location' parameter is not true"""
         with self.assertRaises(RuntimeError):
-            recycle._get_auth_token_secret(location=None)
+            recycle._get_secret(location=None)
 
     @patch("recycler.recycle.open", create=True)
     def test_reads_file(self, fake_open):
-        """``_get_auth_token_secret`` reads the secret out of the supplied file"""
+        """``_get_secret`` reads the secret out of the supplied file"""
         fake_file = MagicMock()
         fake_file.read.return_value = 'aa.bb.cc'
         fake_open.return_value.__enter__.return_value = fake_file
 
-        secret = recycle._get_auth_token_secret(location='/some/path/location')
+        secret = recycle._get_secret(location='/some/path/location')
         expected = 'aa.bb.cc'
 
         self.assertEqual(secret, expected)
@@ -28,9 +28,9 @@ class TestGetAuthTokenSecret(unittest.TestCase):
 
 class TestGenerateToken(unittest.TestCase):
     """A suite of tests cases for the ``generate_token`` function"""
-    @patch.object(recycle, '_get_auth_token_secret')
+    @patch.object(recycle, '_get_secret')
     @patch.object(recycle.jwt, 'encode')
-    def test_token(self, fake_encode, fake_get_auth_token_secret):
+    def test_token(self, fake_encode, fake_get_secret):
         """``generate_token`` returns an encoded JSON Web Token"""
         fake_encode.return_value = 'aa.bb.cc'
 
@@ -51,7 +51,7 @@ class TestGetLdapConn(unittest.TestCase):
         fake_conn = MagicMock()
         fake_Connection.return_value = fake_conn
 
-        result = recycle.get_ldap_conn()
+        result = recycle.get_ldap_conn('somePassword')
         expected = (fake_conn, fake_server)
 
         self.assertEqual(result, expected)
@@ -112,31 +112,29 @@ class TestNukeLabFunctions(unittest.TestCase):
         cls.headers = {'X-Auth' : 'aa.bb.cc'}
         cls.fake_resp = MagicMock()
 
-    @patch.object(recycle.requests, 'post')
-    def test_power_off_vms(self, fake_post):
+    @patch.object(recycle, 'call_api')
+    def test_power_off_vms(self, fake_call_api):
         """``power_off_vms`` Makes the correct API call to turn off a user's VMs"""
         fake_url = 'https://some.vlab.server'
-        fake_post.return_value = self.fake_resp
 
         recycle.power_off_vms(self.headers, fake_url)
 
-        the_args, _ = fake_post.call_args
+        the_args, _ = fake_call_api.call_args
         called_url = the_args[0]
         expected_url = 'https://some.vlab.server/api/1/inf/power'
 
         self.assertEqual(called_url, expected_url)
 
-    @patch.object(recycle.requests, 'delete')
-    def test_delete_inventory(self, fake_delete):
+    @patch.object(recycle, 'call_api')
+    def test_delete_inventory(self, fake_call_api):
         """``delete_inventory`` Makes the correct API call to turn off a user's VMs"""
         fake_url = 'https://some.vlab.server'
-        fake_delete.return_value = self.fake_resp
 
         recycle.delete_inventory(self.headers, fake_url)
 
-        the_args, _ = fake_delete.call_args
+        the_args, _ = fake_call_api.call_args
         called_url = the_args[0]
-        expected_url = 'https://some.vlab.server/api/2/inf/inventory'
+        expected_url = 'https://some.vlab.server/api/1/inf/inventory'
 
         self.assertEqual(called_url, expected_url)
 
@@ -154,20 +152,44 @@ class TestNukeLabFunctions(unittest.TestCase):
 
         the_args, _ = fake_delete.call_args
         called_url = the_args[0]
-        expected_url = 'https://some.vlab.server/api/2/inf/network'
+        expected_url = 'https://some.vlab.server/api/2/inf/vlan'
 
         self.assertEqual(called_url, expected_url)
 
 
+class TestCallApi(unittest.TestCase):
+    """A suite of test cases for the ``call_api`` function"""
+    @patch.object(recycle.time, 'sleep')
+    @patch.object(recycle.requests, 'delete')
+    @patch.object(recycle.requests, 'get')
+    def test_consumes_task(self, fake_get, fake_delete, fake_sleep):
+        """``call_api`` blocks until the async task on the servers is done"""
+        fake_resp1 = MagicMock()
+        fake_resp1.status_code = 202
+        fake_resp2 = MagicMock()
+        fake_resp2.status_code == 200
+        fake_resp2.json.return_value.__getitem__.return_value = {'worked' : True}
+
+        fake_delete.return_value = fake_resp1
+        fake_get.side_effect = [fake_resp1, fake_resp1, fake_resp1, fake_resp2]
+
+        result = recycle.call_api('https://some.url', 'user.auth.token', method='delete')
+        expected = {'worked': True}
+
+        self.assertEqual(result, expected)
+
+
 class TestMain(unittest.TestCase):
     """A suite of test cases for the ``main`` function"""
+    @patch.object(recycle, '_get_secret')
     @patch.object(recycle, 'get_logger')
     @patch.object(recycle, 'vCenter')
     @patch.object(recycle, 'get_ldap_conn')
     @patch.object(recycle, 'user_disabled')
     @patch.object(recycle, 'nuke_lab')
     @patch.object(recycle.time, 'sleep')
-    def test_main(self, fake_sleep, fake_nuke_lab, fake_user_disabled, fake_get_ldap_conn, fake_vCenter, fake_get_logger):
+    def test_main(self, fake_sleep, fake_nuke_lab, fake_user_disabled, fake_get_ldap_conn,
+                  fake_vCenter, fake_get_logger, fake_get_secret):
         """``main`` sleeps after every loop to check for disabled user accounts"""
         fake_ldap_conn = MagicMock()
         fake_ldap_server = MagicMock()
@@ -191,13 +213,15 @@ class TestMain(unittest.TestCase):
 
         self.assertEqual(sleep_count, loops_ran)
 
+    @patch.object(recycle, '_get_secret')
     @patch.object(recycle, 'get_logger')
     @patch.object(recycle, 'vCenter')
     @patch.object(recycle, 'get_ldap_conn')
     @patch.object(recycle, 'user_disabled')
     @patch.object(recycle, 'nuke_lab')
     @patch.object(recycle.time, 'sleep')
-    def test_main_errors(self, fake_sleep, fake_nuke_lab, fake_user_disabled, fake_get_ldap_conn, fake_vCenter, fake_get_logger):
+    def test_main_errors(self, fake_sleep, fake_nuke_lab, fake_user_disabled, fake_get_ldap_conn,
+                         fake_vCenter, fake_get_logger, fake_get_secret):
         """``main`` Logs and error and proceeds to the next user while looping"""
         fake_log = MagicMock()
         fake_get_logger.return_value = fake_log

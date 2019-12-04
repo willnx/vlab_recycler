@@ -81,14 +81,17 @@ def user_disabled(username, ldap_conn):
     :type ldap_conn: ldap3.Connection
     """
     search_filter = '(&(objectclass=User)(sAMAccountName=%s))' % username
-    if ldap_conn.search(search_base=const.AUTH_SEARCH_BASE,
-                        search_filter=search_filter,
-                        attributes=['userAccountControl']):
+    ldap_conn.search(search_base=const.AUTH_SEARCH_BASE,
+                     search_filter=search_filter,
+                     attributes=['userAccountControl'])
+    if ldap_conn.entries:
         user = ldap_conn.entries[0]
         disabled = user.userAccountControl.value >> 1 & 1
         return bool(disabled)
     else:
-        raise RuntimeError('Unable to find a user by samAccoutName {}'.format(username))
+        # It's a rouge lab or the user has been deleted from AD
+        # either way, nuke it.
+        return True
 
 
 def nuke_lab(username):

@@ -82,10 +82,10 @@ class TestUserDisabled(unittest.TestCase):
         self.assertTrue(disabled is False)
 
     def test_user_disabled_not_found(self):
-        """``user_disabled`` raises RuntimeError when unable to find the user in LDAP"""
-        self.fake_ldap_conn.search.return_value = False
-        with self.assertRaises(RuntimeError):
-            recycle.user_disabled(username='alice', ldap_conn=self.fake_ldap_conn)
+        """``user_disabled`` returns True when unable to find the user in LDAP"""
+        self.fake_ldap_conn.entries = []
+        answer = recycle.user_disabled(username='alice', ldap_conn=self.fake_ldap_conn)
+        self.assertTrue(answer)
 
 
 class TestNukeLab(unittest.TestCase):

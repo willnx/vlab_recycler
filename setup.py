@@ -6,7 +6,7 @@ from setuptools import setup, find_packages
 setup(name="recycler",
       author="Nicholas Willhite,",
       author_email='willnx84@gmail.com',
-      version='2019.12.04',
+      version='2020.01.22',
       packages=find_packages(),
       include_package_data=True,
       classifiers=[

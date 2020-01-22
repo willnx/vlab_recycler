@@ -2,6 +2,7 @@
 """
 All the things can override via Environment variables are keep in this one file.
 """
+import socket
 from os import environ
 from collections import namedtuple, OrderedDict
 
@@ -16,7 +17,7 @@ DEFINED = OrderedDict([
             ('AUTH_PRIVATE_KEY_LOCATION', environ.get('AUTH_PRIVATE_KEY_LOCATION', '/etc/vlab/auth_private.key')),
             ('AUTH_TOKEN_ALGORITHM', environ.get('AUTH_TOKEN_ALGORITHM', 'HS256')),
             ('VLAB_URL', environ.get('VLAB_URL', 'https://some.vlab.org')),
-            ('VLAB_IP', environ.get('VLAB_IP', '127.0.0.1')),
+            ('VLAB_IP', environ.get('VLAB_IP', socket.gethostbyname(socket.gethostname()))),
             ('AUTH_LDAP_URL', environ.get('AUTH_LDAP_URL', 'ldaps://localhost')),
             ('AUTH_BIND_USER', environ.get('AUTH_BIND_USER', 'noone')),
             ('AUTH_BIND_PASSWORD_LOCATION', environ.get('AUTH_BIND_PASSWORD', '/etc/vlab/ldap_creds.txt')),

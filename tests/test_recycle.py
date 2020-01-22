@@ -96,7 +96,8 @@ class TestNukeLab(unittest.TestCase):
     @patch.object(recycle, 'delete_networks')
     def test_nuke_lab(self, fake_delete_networks, fake_delete_inventory, fake_power_off_vms, fake_generate_token):
         """``nuke_lab`` is just a convenient wrapper to delete a user's lab resources"""
-        recycle.nuke_lab(username='pat')
+        fake_logger = MagicMock()
+        recycle.nuke_lab(username='pat', logger=fake_logger)
 
         self.assertTrue(fake_delete_networks.called)
         self.assertTrue(fake_delete_inventory.called)
@@ -116,8 +117,9 @@ class TestNukeLabFunctions(unittest.TestCase):
     def test_power_off_vms(self, fake_call_api):
         """``power_off_vms`` Makes the correct API call to turn off a user's VMs"""
         fake_url = 'https://some.vlab.server'
+        fake_logger = MagicMock()
 
-        recycle.power_off_vms(self.headers, fake_url)
+        recycle.power_off_vms(self.headers, fake_url, fake_logger)
 
         the_args, _ = fake_call_api.call_args
         called_url = the_args[0]
@@ -129,8 +131,9 @@ class TestNukeLabFunctions(unittest.TestCase):
     def test_delete_inventory(self, fake_call_api):
         """``delete_inventory`` Makes the correct API call to turn off a user's VMs"""
         fake_url = 'https://some.vlab.server'
+        fake_logger = MagicMock()
 
-        recycle.delete_inventory(self.headers, fake_url)
+        recycle.delete_inventory(self.headers, fake_url, fake_logger)
 
         the_args, _ = fake_call_api.call_args
         called_url = the_args[0]
@@ -143,12 +146,13 @@ class TestNukeLabFunctions(unittest.TestCase):
     def test_delete_networks(self, fake_delete, fake_get):
         """``delete_networks`` Makes the correct API call to turn off a user's VMs"""
         fake_url = 'https://some.vlab.server'
+        fake_logger = MagicMock()
         fake_delete.return_value = self.fake_resp
         fake_get_resp = MagicMock()
         fake_get_resp.json.return_value = {'content' : {'someNet': 123}}
         fake_get.return_value = fake_get_resp
 
-        recycle.delete_networks(self.headers, fake_url)
+        recycle.delete_networks(self.headers, fake_url, fake_logger)
 
         the_args, _ = fake_delete.call_args
         called_url = the_args[0]
@@ -164,6 +168,7 @@ class TestCallApi(unittest.TestCase):
     @patch.object(recycle.requests, 'get')
     def test_consumes_task(self, fake_get, fake_delete, fake_sleep):
         """``call_api`` blocks until the async task on the servers is done"""
+        fake_logger = MagicMock()
         fake_resp1 = MagicMock()
         fake_resp1.status_code = 202
         fake_resp2 = MagicMock()
@@ -173,7 +178,7 @@ class TestCallApi(unittest.TestCase):
         fake_delete.return_value = fake_resp1
         fake_get.side_effect = [fake_resp1, fake_resp1, fake_resp1, fake_resp2]
 
-        result = recycle.call_api('https://some.url', 'user.auth.token', method='delete')
+        result = recycle.call_api('https://some.url', 'user.auth.token', fake_logger, method='delete')
         expected = {'worked': True}
 
         self.assertEqual(result, expected)

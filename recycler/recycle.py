@@ -94,7 +94,7 @@ def user_disabled(username, ldap_conn):
         return True
 
 
-def nuke_lab(username):
+def nuke_lab(username, logger):
     """A wrapper to delete all lab resources owned by a given user
 
     :Returns: None
@@ -106,12 +106,12 @@ def nuke_lab(username):
     # Order matters.
     # Cannot delete a powered on VM
     # Cannot delete a network with VMs attached to it
-    power_off_vms(token, const.VLAB_URL)
-    delete_inventory(token, const.VLAB_URL)
-    delete_networks(token, const.VLAB_URL)
+    power_off_vms(token, const.VLAB_URL, logger)
+    delete_inventory(token, const.VLAB_URL, logger)
+    delete_networks(token, const.VLAB_URL, logger)
 
 
-def power_off_vms(token, vlab_url):
+def power_off_vms(token, vlab_url, logger):
     """Turn off all VMs a user owns
 
     :Returns: None
@@ -124,10 +124,10 @@ def power_off_vms(token, vlab_url):
     """
     url = '{}/api/1/inf/power'.format(vlab_url)
     payload = {'power': "off", "machine": "all"}
-    call_api(url, token, method='post', payload=payload)
+    call_api(url, token, method='post', payload=payload, logger=logger)
 
 
-def delete_inventory(token, vlab_url):
+def delete_inventory(token, vlab_url, logger):
     """Destroy all VMs a user owns
 
     :Returns: None
@@ -139,10 +139,10 @@ def delete_inventory(token, vlab_url):
     :type vlab_url: String
     """
     url = '{}/api/1/inf/inventory'.format(vlab_url)
-    call_api(url,token, method='delete')
+    call_api(url,token, method='delete', logger=logger)
 
 
-def delete_networks(token, vlab_url):
+def delete_networks(token, vlab_url, logger):
     """Destroy all VLAN networks a user owns
 
     :Returns: None
@@ -154,13 +154,13 @@ def delete_networks(token, vlab_url):
     :type vlab_url: String
     """
     url = '{}/api/2/inf/vlan'.format(vlab_url)
-    networks = call_api(url, token)
+    networks = call_api(url, token, logger)
     for network in networks.keys():
         payload = {'vlan-name' : network}
-        call_api(url, token, method='delete', payload=payload)
+        call_api(url, token, method='delete', payload=payload, logger=logger)
 
 
-def call_api(url, token, method='get', payload=None):
+def call_api(url, token, logger, method='get', payload=None):
     """The infrastructure API in vLab is asynchronous. This function will block
     until the request is completely done.
 
@@ -178,13 +178,17 @@ def call_api(url, token, method='get', payload=None):
     headers = {'X-Auth': token}
     caller =  getattr(requests, method.lower())
     resp = caller(url, headers=headers, json=payload, verify=False)
-    resp.raise_for_status()
+    if not resp.ok:
+        logger.error(resp.content)
+        resp.raise_for_status()
     task_url = resp.links['status']['url']
     task_resp = requests.get(task_url, headers=headers, verify=False)
     while task_resp.status_code == 202:
         time.sleep(1)
         task_resp = requests.get(task_url, headers=headers, verify=False)
-    task_resp.raise_for_status()
+    if not task_resp.ok:
+        logger.error(task_resp.content)
+        task_resp.raise_for_status()
     return task_resp.json()['content']
 
 
@@ -206,7 +210,7 @@ def main():
                 try:
                     if user_disabled(user.name, ldap_conn):
                         logger.info('User {} disabled, deleting lab'.format(user.name))
-                        nuke_lab(user.name)
+                        nuke_lab(user.name, logger)
                 except RuntimeError as doh:
                     logger.exception(doh)
         ldap_conn.unbind()
